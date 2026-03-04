@@ -116,6 +116,86 @@ const { ref, isFocused } = useFocusable({
 })
 ```
 
+---
+
+## ⚙️ Advanced Configuration (`SpatialNavConfig`)
+
+While `<FocusProvider>` uses intelligent default spatial behavior, you can interact directly with the underlying spatial engine by passing a `config` object to `findNextFocusable(currentId, elements, direction, config)`, or by extending your app logic.
+
+The engine scoring is customizable. You can provide these options to `<FocusProvider config={{ ... }}>`:
+
+### `sameGroupBonus` (default: `50`)
+Applies a score bonus to elements that share the same `groupId` as the currently focused element. A higher value makes the focus "stick" to the current group rather than jumping to a closer element in a different group.
+
+```tsx
+// This config strongly prefers staying inside the current group.
+// Even if an item in another group is physically closer, it will jump to the next item in the same group.
+<FocusProvider config={{ sameGroupBonus: 1000 }}>
+  {/* Elements with the same groupId get the bonus */}
+  <SideMenu groupId="menu-group" />
+  <MainGrid groupId="content-group" />
+</FocusProvider>
+```
+
+### `outOfViewportPenalty` (default: `500`)
+Applies an artificial distance penalty to elements that are currently off-screen. This helps prevent focus from disappearing off-screen when there are perfectly valid on-screen targets.
+
+```tsx
+// This config makes focus very eager to stay on-screen.
+// It will only jump off-screen if absolutely no other valid option exists on-screen.
+<FocusProvider config={{ outOfViewportPenalty: 2000 }}>
+  <AppContent />
+</FocusProvider>
+```
+
+### `primaryDistanceWeight` (default: `1`)
+Determines how heavily the direct alignment distance (e.g., how far Right the next element is when pressing ArrowRight) matters in the scoring algorithm.
+
+```tsx
+// Setting this higher makes the algorithm aggressively favor elements that are 
+// closer in the strict direction of movement, largely ignoring perpendicular drift.
+<FocusProvider config={{ primaryDistanceWeight: 3 }}>
+  <AppContent />
+</FocusProvider>
+```
+
+### `crossDistanceWeight` (default: `0.5`)
+Determines how heavily misalignment (perpendicular distance from the center axis, e.g., how far Up or Down an element is when navigating Right) matters.
+
+```tsx
+// Setting this to a high value strictly forces focus to follow straight lines. 
+// It will heavily penalize elements that are visually staggered or misaligned.
+<FocusProvider config={{ crossDistanceWeight: 5 }}>
+  <AppContent />
+</FocusProvider>
+```
+
+### `skipHiddenElements` (default: `true`)
+Automatically ignores elements with `display: none`, `visibility: hidden`, or `opacity: 0` so focus doesn't accidentally land on invisible items.
+
+```tsx
+// Disabling this will allow the engine to focus visually hidden items.
+// You might do this if you handle visibility purely via Javascript state 
+// and want hidden elements to still receive focus events behind the scenes.
+<FocusProvider config={{ skipHiddenElements: false }}>
+  <AppContent />
+</FocusProvider>
+```
+
+### `preferViewport` (default: `true`)
+A boolean toggle that enables or disables the `outOfViewportPenalty` altogether.
+
+```tsx
+// Setting this to false turns off the outOfViewportPenalty. 
+// Focus will move purely based on distance, blindly jumping off-screen 
+// if the next element is technically the closest geometrical match.
+<FocusProvider config={{ preferViewport: false }}>
+  <AppContent />
+</FocusProvider>
+```
+
+---
+
 ## 📝 License
 
 This project is licensed under the BSD-3-Clause License - see the `LICENSE` file for details.

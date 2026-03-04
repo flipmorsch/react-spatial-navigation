@@ -9,6 +9,7 @@ import React, {
 import {
   type Direction,
   type FocusableElement,
+  type SpatialNavConfig,
   findNextFocusable,
 } from './spatial-navigation'
 
@@ -27,9 +28,10 @@ interface FocusContextType {
 
 const FocusContext = createContext<FocusContextType | undefined>(undefined)
 
-export const FocusProvider: React.FC<{children: React.ReactNode}> = ({
-  children,
-}) => {
+export const FocusProvider: React.FC<{
+  children: React.ReactNode
+  config?: SpatialNavConfig
+}> = ({children, config}) => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const elementsRef = useRef<Map<string, RegisteredElement>>(new Map())
 
@@ -96,7 +98,7 @@ export const FocusProvider: React.FC<{children: React.ReactNode}> = ({
       }
 
       const elements = Array.from(elementsRef.current.values())
-      const nextId = findNextFocusable(activeId, elements, action)
+      const nextId = findNextFocusable(activeId, elements, action, config)
 
       if (nextId) {
         e.preventDefault()
