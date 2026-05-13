@@ -1,13 +1,25 @@
-import {useRef, useEffect, useId} from 'react'
+import {useRef, useEffect, useId, useCallback} from 'react'
 import {useFocusContext} from './FocusContext'
 
-interface UseFocusableOptions {
+export interface UseFocusableOptions {
   id?: string
   onEnter?: () => void
   onFocus?: () => void
   onBlur?: () => void
   groupId?: string
   autoFocus?: boolean
+  priority?: number
+}
+
+export interface UseFocusableResult {
+  /** Callback ref — attach to the DOM element you want to make focusable */
+  ref: (node: HTMLElement | null) => void
+  /** Whether this element currently has spatial focus */
+  isFocused: boolean
+  /** The resolved element ID */
+  id: string
+  /** Imperatively focus this element */
+  setFocus: () => void
 }
 
 export function useFocusable({
@@ -16,38 +28,47 @@ export function useFocusable({
   onFocus,
   onBlur,
   groupId,
+  priority,
   autoFocus = false,
-}: UseFocusableOptions = {}) {
+}: UseFocusableOptions = {}): UseFocusableResult {
   const internalId = useId()
   const id = providedId || internalId
-  const ref = useRef<HTMLElement>(null)
   const {activeId, register, unregister, setFocus} = useFocusContext()
 
   const isFocused = activeId === id
 
-  // Use refs for callbacks so they are always current but don't trigger re-registration
+  // Keep callbacks in a ref so register/unregister closures always see the
+  // latest values without re-registering the element.
   const callbacks = useRef({onEnter, onFocus, onBlur})
   useEffect(() => {
     callbacks.current = {onEnter, onFocus, onBlur}
   }, [onEnter, onFocus, onBlur])
 
-  useEffect(() => {
-    if (ref.current) {
-      register({
-        id,
-        ref: ref.current,
-        onEnter: () => callbacks.current.onEnter?.(),
-        onFocus: () => callbacks.current.onFocus?.(),
-        onBlur: () => callbacks.current.onBlur?.(),
-        groupId,
-      })
-    }
+  // Callback ref: register when the DOM node mounts, unregister when it
+  // unmounts or changes. This keeps the registered DOM node always in sync.
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      if (node) {
+        register({
+          id,
+          ref: node,
+          groupId,
+          priority,
+          onEnter: () => callbacks.current.onEnter?.(),
+          onFocus: () => callbacks.current.onFocus?.(),
+          onBlur: () => callbacks.current.onBlur?.(),
+        })
+      } else {
+        unregister(id)
+      }
+    },
+    // register and unregister are stable (useCallback with [] deps in context).
+    // id, groupId, and priority may change — if they do, the old registration
+    // is cleaned up and a new one is created via the callback ref lifecycle.
+    [id, register, unregister, groupId, priority],
+  )
 
-    return () => {
-      unregister(id)
-    }
-  }, [id, register, unregister, groupId])
-
+  // Auto-focus on mount
   useEffect(() => {
     if (autoFocus) {
       setFocus(id)
