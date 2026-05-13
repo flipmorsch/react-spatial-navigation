@@ -154,4 +154,8 @@ test('priority breaks ties when candidates score equally', async ({
     'background-color',
     'rgb(0, 0, 255)',
   )
+  await expect(component.getByTestId('Low Priority Box')).toHaveCSS(
+    'background-color',
+    'rgb(128, 128, 128)',
+  )
 })

@@ -113,17 +113,20 @@ export const WeightTestApp = ({config}: {config?: SpatialNavConfig}) => {
 }
 
 export const PriorityTestApp = ({config}: {config?: SpatialNavConfig}) => {
+  const LOW_PRIORITY = 1
+  const HIGH_PRIORITY = 10
+
   return (
     <FocusProvider config={config}>
       <div style={{position: 'relative', width: '800px', height: '600px'}}>
         <div style={{position: 'absolute', top: 50, left: 50}}>
           <FocusableBox label="Box 1" autoFocus />
         </div>
-        <div style={{position: 'absolute', top: 50, left: 250}}>
-          <FocusableBox label="Low Priority Box" priority={1} />
+        <div style={{position: 'absolute', top: 0, left: 250}}>
+          <FocusableBox label="Low Priority Box" priority={LOW_PRIORITY} />
         </div>
-        <div style={{position: 'absolute', top: 50, left: 250}}>
-          <FocusableBox label="High Priority Box" priority={10} />
+        <div style={{position: 'absolute', top: 100, left: 250}}>
+          <FocusableBox label="High Priority Box" priority={HIGH_PRIORITY} />
         </div>
       </div>
     </FocusProvider>

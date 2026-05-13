@@ -35,7 +35,9 @@ export function useFocusable({
   const id = providedId || internalId
   const {activeId, register, unregister, setFocus} = useFocusContext()
   const nodeRef = useRef<HTMLElement | null>(null)
-  const didInitRegistrationEffect = useRef(false)
+  const metadataRef = useRef({groupId, priority})
+  const prevMetadataRef = useRef({groupId, priority})
+  metadataRef.current = {groupId, priority}
 
   const isFocused = activeId === id
 
@@ -48,17 +50,19 @@ export function useFocusable({
 
   const registerNode = useCallback(
     (node: HTMLElement) => {
+      const {groupId: currentGroupId, priority: currentPriority} =
+        metadataRef.current
       register({
         id,
         ref: node,
-        groupId,
-        priority,
+        groupId: currentGroupId,
+        priority: currentPriority,
         onEnter: () => callbacks.current.onEnter?.(),
         onFocus: () => callbacks.current.onFocus?.(),
         onBlur: () => callbacks.current.onBlur?.(),
       })
     },
-    [id, register, groupId, priority],
+    [id, register],
   )
 
   // Callback ref: register when the DOM node mounts, unregister when it
@@ -78,14 +82,18 @@ export function useFocusable({
   )
 
   useEffect(() => {
-    if (!didInitRegistrationEffect.current) {
-      didInitRegistrationEffect.current = true
+    const prevMetadata = prevMetadataRef.current
+    if (
+      prevMetadata.groupId === groupId &&
+      prevMetadata.priority === priority
+    ) {
       return
     }
+    prevMetadataRef.current = {groupId, priority}
     if (nodeRef.current) {
       registerNode(nodeRef.current)
     }
-  }, [registerNode])
+  }, [groupId, priority, registerNode])
 
   // Auto-focus on mount
   useEffect(() => {
