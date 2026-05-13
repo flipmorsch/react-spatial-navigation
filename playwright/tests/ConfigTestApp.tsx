@@ -18,7 +18,7 @@ const FocusableBox = ({
 
   return (
     <div
-      ref={ref as any}
+      ref={ref}
       data-testid={label}
       style={{
         width: 100,
