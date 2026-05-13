@@ -395,9 +395,14 @@ export function getFocusableElements(
     }
 
     const groupId = el.dataset.focusGroup;
-    const priority = el.dataset.focusPriority
-      ? parseInt(el.dataset.focusPriority, 10)
+    const rawPriority = el.dataset.focusPriority;
+    const parsedPriority = rawPriority
+      ? parseInt(rawPriority, 10)
       : undefined;
+    const priority =
+      parsedPriority !== undefined && !Number.isNaN(parsedPriority)
+        ? parsedPriority
+        : undefined;
 
     elements.push({
       id,
