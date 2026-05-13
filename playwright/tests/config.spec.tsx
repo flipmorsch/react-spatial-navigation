@@ -3,6 +3,7 @@ import React from 'react'
 import {
   ConfigTestApp,
   HiddenTestApp,
+  PriorityTestApp,
   ViewportTestApp,
   WeightTestApp,
 } from './ConfigTestApp'
@@ -134,5 +135,27 @@ test('custom crossDistanceWeight violently penalizes misalignment, favoring perf
   await expect(component.getByTestId('Box 3')).toHaveCSS(
     'background-color',
     'rgb(0, 0, 255)',
+  )
+})
+
+test('priority breaks ties when candidates score equally', async ({
+  mount,
+  page,
+}) => {
+  const component = await mount(<PriorityTestApp />)
+  await expect(component.getByTestId('Box 1')).toHaveCSS(
+    'background-color',
+    'rgb(0, 0, 255)',
+  )
+
+  await page.keyboard.press('ArrowRight')
+
+  await expect(component.getByTestId('High Priority Box')).toHaveCSS(
+    'background-color',
+    'rgb(0, 0, 255)',
+  )
+  await expect(component.getByTestId('Low Priority Box')).toHaveCSS(
+    'background-color',
+    'rgb(128, 128, 128)',
   )
 })

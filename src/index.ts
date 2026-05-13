@@ -1,5 +1,7 @@
 export {FocusProvider, useFocusContext} from './FocusContext'
+export type {RegisteredElement} from './FocusContext'
 export {useFocusable} from './useFocusable'
+export type {UseFocusableOptions, UseFocusableResult} from './useFocusable'
 export {
   findNextFocusable,
   getRect,

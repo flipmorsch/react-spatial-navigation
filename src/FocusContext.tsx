@@ -8,25 +8,18 @@ import React, {
 } from 'react'
 import {
   type Direction,
-  type FocusableElement,
   type SpatialNavConfig,
   findNextFocusable,
 } from './spatial-navigation'
 
-export interface RegisteredElement extends FocusableElement {
-  onEnter?: () => void
-  onFocus?: () => void
-  onBlur?: () => void
-}
-
-interface FocusContextType {
-  activeId: string | null
-  register: (element: RegisteredElement) => void
-  unregister: (id: string) => void
-  setFocus: (id: string) => void
-}
-
 const FocusContext = createContext<FocusContextType | undefined>(undefined)
+
+// ─── SSR-safe window access ───────────────────────────────────────────────────
+function getWindow(): Window | undefined {
+  return typeof window !== 'undefined' ? window : undefined
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const FocusProvider: React.FC<{
   children: React.ReactNode
@@ -35,9 +28,30 @@ export const FocusProvider: React.FC<{
   const [activeId, setActiveId] = useState<string | null>(null)
   const elementsRef = useRef<Map<string, RegisteredElement>>(new Map())
 
+  // Keep mutable refs in sync so the keydown handler always sees latest values
+  // without needing to re-attach the event listener on every change.
+  const configRef = useRef(config)
+  configRef.current = config
+
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
+
+  const prevActiveId = useRef<string | null>(null)
+
   const register = useCallback((element: RegisteredElement) => {
+    if (elementsRef.current.has(element.id)) {
+      // Warn about duplicate IDs — silently overwriting can cause lost callbacks
+      const debug = configRef.current?.debug ?? false
+      if (debug) {
+        console.warn(
+          `SpatialNav: Duplicate focusable ID "${element.id}" — overwriting previous registration.`,
+        )
+      }
+    }
     elementsRef.current.set(element.id, element)
-    // If no active ID, or the current active ID is not in the map, set it to the first registered element
+
+    // If no active ID, or the current active ID is no longer in the map,
+    // default to the first registered element.
     setActiveId(current => {
       if (current && elementsRef.current.has(current)) return current
       return element.id
@@ -62,9 +76,11 @@ export const FocusProvider: React.FC<{
     }
   }, [])
 
-  const prevActiveId = useRef<string | null>(null)
-
+  // ── Keyboard listener (attached once, reads latest values from refs) ──────
   useEffect(() => {
+    const win = getWindow()
+    if (!win) return // SSR guard
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const mapping: Record<string, Direction | 'enter' | 'back'> = {
         ArrowUp: 'up',
@@ -79,17 +95,17 @@ export const FocusProvider: React.FC<{
       const action = mapping[e.key]
       if (!action) return
 
-      // If no elements are registered, don't intercept keys (allow player to handle them)
+      // If no elements are registered, don't intercept keys
       if (elementsRef.current.size === 0) return
 
       if (action === 'back') {
-        // Most TV apps expect Back to behave like history.back() or custom navigation
-        // If nothing is handled here, we allow it to bubble or manually navigate
+        // TV "Back" key — observed but not overridden by default.
+        // Users should handle Escape / Backspace at the app level.
         return
       }
 
       if (action === 'enter') {
-        const active = elementsRef.current.get(activeId || '')
+        const active = elementsRef.current.get(activeIdRef.current || '')
         if (active?.onEnter) {
           e.preventDefault()
           active.onEnter()
@@ -97,8 +113,14 @@ export const FocusProvider: React.FC<{
         return
       }
 
+      // Directional navigation
       const elements = Array.from(elementsRef.current.values())
-      const nextId = findNextFocusable(activeId, elements, action, config)
+      const nextId = findNextFocusable(
+        activeIdRef.current,
+        elements,
+        action,
+        configRef.current,
+      )
 
       if (nextId) {
         e.preventDefault()
@@ -106,11 +128,11 @@ export const FocusProvider: React.FC<{
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeId])
+    win.addEventListener('keydown', handleKeyDown)
+    return () => win.removeEventListener('keydown', handleKeyDown)
+  }, []) // ← empty deps: relies on refs for current values
 
-  // Handle focus/blur callbacks and scrolling
+  // ── Focus/blur callbacks + auto-scroll ────────────────────────────────────
   useEffect(() => {
     if (prevActiveId.current !== activeId) {
       if (prevActiveId.current) {
@@ -120,6 +142,7 @@ export const FocusProvider: React.FC<{
         const element = elementsRef.current.get(activeId)
         if (element) {
           element.onFocus?.()
+          // Smooth scroll the newly focused element into view
           element.ref.scrollIntoView({
             behavior: 'smooth',
             block: 'center',
@@ -138,10 +161,31 @@ export const FocusProvider: React.FC<{
   )
 }
 
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
 export const useFocusContext = () => {
   const context = useContext(FocusContext)
   if (!context) {
     throw new Error('useFocusContext must be used within a FocusProvider')
   }
   return context
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface RegisteredElement {
+  id: string
+  ref: HTMLElement
+  groupId?: string
+  priority?: number
+  onEnter?: () => void
+  onFocus?: () => void
+  onBlur?: () => void
+}
+
+interface FocusContextType {
+  activeId: string | null
+  register: (element: RegisteredElement) => void
+  unregister: (id: string) => void
+  setFocus: (id: string) => void
 }
