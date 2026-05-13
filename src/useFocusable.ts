@@ -34,6 +34,8 @@ export function useFocusable({
   const internalId = useId()
   const id = providedId || internalId
   const {activeId, register, unregister, setFocus} = useFocusContext()
+  const nodeRef = useRef<HTMLElement | null>(null)
+  const didInitRegistrationEffect = useRef(false)
 
   const isFocused = activeId === id
 
@@ -44,29 +46,46 @@ export function useFocusable({
     callbacks.current = {onEnter, onFocus, onBlur}
   }, [onEnter, onFocus, onBlur])
 
+  const registerNode = useCallback(
+    (node: HTMLElement) => {
+      register({
+        id,
+        ref: node,
+        groupId,
+        priority,
+        onEnter: () => callbacks.current.onEnter?.(),
+        onFocus: () => callbacks.current.onFocus?.(),
+        onBlur: () => callbacks.current.onBlur?.(),
+      })
+    },
+    [id, register, groupId, priority],
+  )
+
   // Callback ref: register when the DOM node mounts, unregister when it
-  // unmounts or changes. This keeps the registered DOM node always in sync.
+  // unmounts or changes. Keep this stable across group/priority changes so
+  // React doesn't force a null->node ref cycle for metadata-only updates.
   const ref = useCallback(
     (node: HTMLElement | null) => {
       if (node) {
-        register({
-          id,
-          ref: node,
-          groupId,
-          priority,
-          onEnter: () => callbacks.current.onEnter?.(),
-          onFocus: () => callbacks.current.onFocus?.(),
-          onBlur: () => callbacks.current.onBlur?.(),
-        })
+        nodeRef.current = node
+        registerNode(node)
       } else {
+        nodeRef.current = null
         unregister(id)
       }
     },
-    // register and unregister are stable (useCallback with [] deps in context).
-    // id, groupId, and priority may change — if they do, the old registration
-    // is cleaned up and a new one is created via the callback ref lifecycle.
-    [id, register, unregister, groupId, priority],
+    [id, registerNode, unregister],
   )
+
+  useEffect(() => {
+    if (!didInitRegistrationEffect.current) {
+      didInitRegistrationEffect.current = true
+      return
+    }
+    if (nodeRef.current) {
+      registerNode(nodeRef.current)
+    }
+  }, [registerNode])
 
   // Auto-focus on mount
   useEffect(() => {

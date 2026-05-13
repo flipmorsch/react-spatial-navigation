@@ -6,15 +6,17 @@ const FocusableBox = ({
   label,
   autoFocus,
   groupId,
+  priority,
   style,
 }: {
   id?: string
   label: string
   autoFocus?: boolean
   groupId?: string
+  priority?: number
   style?: React.CSSProperties
 }) => {
-  const {ref, isFocused} = useFocusable({id, autoFocus, groupId})
+  const {ref, isFocused} = useFocusable({id, autoFocus, groupId, priority})
 
   return (
     <div
@@ -104,6 +106,24 @@ export const WeightTestApp = ({config}: {config?: SpatialNavConfig}) => {
         {/* Box 3: Extremely far on X (+600px) but perfectly aligned on Y */}
         <div style={{position: 'absolute', top: 50, left: 650}}>
           <FocusableBox label="Box 3" />
+        </div>
+      </div>
+    </FocusProvider>
+  )
+}
+
+export const PriorityTestApp = ({config}: {config?: SpatialNavConfig}) => {
+  return (
+    <FocusProvider config={config}>
+      <div style={{position: 'relative', width: '800px', height: '600px'}}>
+        <div style={{position: 'absolute', top: 50, left: 50}}>
+          <FocusableBox label="Box 1" autoFocus />
+        </div>
+        <div style={{position: 'absolute', top: 50, left: 250}}>
+          <FocusableBox label="Low Priority Box" priority={1} />
+        </div>
+        <div style={{position: 'absolute', top: 50, left: 250}}>
+          <FocusableBox label="High Priority Box" priority={10} />
         </div>
       </div>
     </FocusProvider>
